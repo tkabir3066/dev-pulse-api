@@ -1,4 +1,6 @@
+import { StatusCodes } from "http-status-codes";
 import { pool } from "../../config/db";
+import ApiError from "../../errors/apiError";
 import type { TIssue } from "./issue.interface";
 
 const createIssueIntoDB = async (payload: TIssue, reporterId: number) => {
@@ -90,10 +92,52 @@ const getAllIssuesFromDB = async (query: Record<string, string>) => {
   return formattedIssues;
 };
 
-export const IssueServices = {
-  getAllIssuesFromDB,
+const getSingleIssueFromDB = async (issueId: number) => {
+  const issueResult = await pool.query(
+    `
+    SELECT *
+    FROM issues
+    WHERE id = $1
+    `,
+    [issueId],
+  );
+
+  const issue = issueResult.rows[0];
+
+  // issue not found
+  if (!issue) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Issue not found");
+  }
+
+  const reporterResult = await pool.query(
+    `
+    SELECT id, name, role
+    FROM users
+    WHERE id = $1
+    `,
+    [issue.reporter_id],
+  );
+
+  const reporter = reporterResult.rows[0] || null;
+
+  const formattedIssue = {
+    id: issue.id,
+    title: issue.title,
+    description: issue.description,
+    type: issue.type,
+    status: issue.status,
+
+    reporter,
+
+    created_at: issue.created_at,
+    updated_at: issue.updated_at,
+  };
+
+  return formattedIssue;
 };
+
 export const IssueService = {
   createIssueIntoDB,
   getAllIssuesFromDB,
+  getSingleIssueFromDB,
 };
