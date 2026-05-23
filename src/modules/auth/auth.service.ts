@@ -63,7 +63,8 @@ const loginUserIntoDB = async (payload: {
     expiresIn: config.JWT.JWT_ACCESS_TOKEN_EXPIRE,
   } as SignOptions);
 
-  return { accessToken };
+  delete user.password;
+  return { accessToken, user };
 };
 
 export const AuthService = {
