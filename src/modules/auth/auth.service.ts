@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import jwt, { type SignOptions } from "jsonwebtoken";
 import { pool } from "../../config/db";
 import type { IUser } from "./auth.interface";
 import config from "../../config/env";
@@ -23,6 +24,49 @@ const registerUserIntoDB = async (payload: IUser) => {
   return result;
 };
 
+const loginUserIntoDB = async (payload: {
+  email: string;
+  password: string;
+}) => {
+  const { email, password } = payload;
+
+  const userData = await pool.query(
+    `
+    SELECT * FROM users WHERE email=$1
+    `,
+    [email],
+  );
+
+  if (userData.rows.length === 0) {
+    throw new Error("User does not exist");
+  }
+
+  const user = userData.rows[0];
+
+  const isPasswordCorrect = await bcrypt.compare(password, user.password);
+  console.log(isPasswordCorrect);
+
+  if (!isPasswordCorrect) {
+    throw new Error("Invalid Credentials");
+  }
+
+  //if password matched then generate token
+  const jwtPayload = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    is_active: user.is_active,
+    role: user.role,
+  };
+
+  const accessToken = jwt.sign(jwtPayload, config.JWT.JWT_ACCESS_TOKEN_SECRET, {
+    expiresIn: config.JWT.JWT_ACCESS_TOKEN_EXPIRE,
+  } as SignOptions);
+
+  return { accessToken };
+};
+
 export const AuthService = {
   registerUserIntoDB,
+  loginUserIntoDB,
 };
