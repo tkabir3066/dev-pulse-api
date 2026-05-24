@@ -2,6 +2,8 @@ import { StatusCodes } from "http-status-codes";
 import { pool } from "../../config/db";
 import ApiError from "../../errors/apiError";
 import type { TIssue } from "./issue.interface";
+import type { JwtPayload } from "jsonwebtoken";
+import type { IUser } from "../auth/auth.interface";
 
 const createIssueIntoDB = async (payload: TIssue, reporterId: number) => {
   const { title, description, type } = payload;
@@ -136,8 +138,93 @@ const getSingleIssueFromDB = async (issueId: number) => {
   return formattedIssue;
 };
 
+//update issue
+const updateIssueIntoDB = async (
+  issueId: number,
+  payload: Record<string, string>,
+  user: JwtPayload,
+) => {
+  // ✅ Check authenticated user
+  if (!user) {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, "Unauthorized access");
+  }
+
+  // ✅ Check Existing Issue
+  const existingIssueResult = await pool.query(
+    `
+    SELECT * FROM issues
+    WHERE id = $1
+    `,
+    [issueId],
+  );
+
+  const existingIssue = existingIssueResult.rows[0];
+
+  if (!existingIssue) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Issue not found");
+  }
+
+  /**
+   * ✅ Authorization Logic
+   */
+
+  const isMaintainer = user.role === "maintainer";
+
+  const isOwner = existingIssue.reporter_id === user.id;
+
+  // contributor can update only own issue
+  if (!isMaintainer && !isOwner) {
+    throw new ApiError(StatusCodes.FORBIDDEN, "You are not authorized");
+  }
+
+  // contributor cannot update resolved/in_progress issues
+  if (user.role === "contributor" && existingIssue.status !== "open") {
+    throw new ApiError(StatusCodes.CONFLICT, "You can update only open issues");
+  }
+
+  /**
+   * ✅ Dynamic Update Fields
+   */
+
+  const allowedFields = ["title", "description", "type"];
+
+  const updates: string[] = [];
+  const values: (string | number)[] = [];
+
+  allowedFields.forEach((field) => {
+    if (payload[field] !== undefined) {
+      values.push(payload[field]);
+
+      updates.push(`${field} = $${values.length}`);
+    }
+  });
+
+  // ✅ No update fields provided
+  if (updates.length === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "No update data provided");
+  }
+
+  // ✅ updated_at field
+  updates.push(`updated_at = CURRENT_TIMESTAMP`);
+
+  // ✅ issue id for WHERE clause
+  values.push(issueId);
+
+  const updateQuery = `
+    UPDATE issues
+    SET ${updates.join(", ")}
+    WHERE id = $${values.length}
+    RETURNING *;
+  `;
+
+  const result = await pool.query(updateQuery, values);
+
+  return result.rows[0];
+};
+
 export const IssueService = {
   createIssueIntoDB,
   getAllIssuesFromDB,
   getSingleIssueFromDB,
+  updateIssueIntoDB,
 };

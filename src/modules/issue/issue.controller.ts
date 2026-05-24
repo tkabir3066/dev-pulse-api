@@ -3,6 +3,7 @@ import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import { StatusCodes } from "http-status-codes";
 import { IssueService } from "./issue.service";
+import type { JwtPayload } from "jsonwebtoken";
 
 const createIssue = catchAsync(async (req: Request, res: Response) => {
   const reporterId = req.user?.id;
@@ -37,9 +38,27 @@ const getSingleIssue = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
+const updateIssue = catchAsync(async (req: Request, res: Response) => {
+  const issueId = Number(req.params.id);
+
+  const user = req.user;
+
+  const result = await IssueService.updateIssueIntoDB(
+    issueId,
+    req.body,
+    user as JwtPayload,
+  );
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "Issue retrieved successfully",
+    data: result,
+  });
+});
 
 export const IssueController = {
   createIssue,
   getAllIssues,
   getSingleIssue,
+  updateIssue,
 };

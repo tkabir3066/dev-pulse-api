@@ -6,10 +6,17 @@ const router = Router();
 
 router.get("/", IssueController.getAllIssues);
 router.get("/:id", IssueController.getSingleIssue);
+
 router.post(
   "/",
   auth("contributor", "maintainer"),
   IssueController.createIssue,
+);
+
+router.patch(
+  "/:id",
+  auth("contributor", "maintainer"),
+  IssueController.updateIssue,
 );
 
 export const IssueRoutes = router;
