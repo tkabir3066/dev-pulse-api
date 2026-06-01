@@ -53,9 +53,7 @@ const loginUserIntoDB = async (payload: {
   //if password matched then generate token
   const jwtPayload = {
     id: user.id,
-    name: user.name,
     email: user.email,
-    is_active: user.is_active,
     role: user.role,
   };
 

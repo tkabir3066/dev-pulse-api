@@ -11,5 +11,6 @@ export const globalErrorHandler = (
   res.status(500).json({
     success: false,
     message: err.message || "Internal Server Error",
+    error: err,
   });
 };

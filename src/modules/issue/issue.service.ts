@@ -4,17 +4,18 @@ import ApiError from "../../errors/apiError";
 import type { TIssue } from "./issue.interface";
 import type { JwtPayload } from "jsonwebtoken";
 import type { IUser } from "../auth/auth.interface";
+import { allowedFields } from "./issue.constant";
 
 const createIssueIntoDB = async (payload: TIssue, reporterId: number) => {
-  const { title, description, type } = payload;
+  const { title, description, type, status } = payload;
 
   const result = await pool.query(
     `
-    INSERT INTO issues(title, description, type, reporter_id)
-    VALUES($1, $2, $3, $4)
+    INSERT INTO issues(title, description, type, status, reporter_id)
+    VALUES($1, $2, $3, $4, $5)
     RETURNING *;
   `,
-    [title, description, type, reporterId],
+    [title, description, type, status, reporterId],
   );
   return result.rows[0];
 };
@@ -144,12 +145,12 @@ const updateIssueIntoDB = async (
   payload: Record<string, string>,
   user: JwtPayload,
 ) => {
-  // ✅ Check authenticated user
+  // Check authenticated user
   if (!user) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, "Unauthorized access");
   }
 
-  // ✅ Check Existing Issue
+  //Check Existing Issue
   const existingIssueResult = await pool.query(
     `
     SELECT * FROM issues
@@ -165,7 +166,7 @@ const updateIssueIntoDB = async (
   }
 
   /**
-   * ✅ Authorization Logic
+   Authorization Logic
    */
 
   const isMaintainer = user.role === "maintainer";
@@ -183,10 +184,8 @@ const updateIssueIntoDB = async (
   }
 
   /**
-   * ✅ Dynamic Update Fields
+   *  Dynamic Update Fields
    */
-
-  const allowedFields = ["title", "description", "type"];
 
   const updates: string[] = [];
   const values: (string | number)[] = [];
@@ -222,9 +221,35 @@ const updateIssueIntoDB = async (
   return result.rows[0];
 };
 
+const deleteIssueFromDB = async (issueId: number) => {
+  const existingIssueResult = await pool.query(
+    `
+      SELECT * FROM issues
+      WHERE id = $1
+    `,
+    [issueId],
+  );
+
+  const existingIssue = existingIssueResult.rows[0];
+
+  if (!existingIssue) {
+    throw new Error("Issue not found");
+  }
+
+  await pool.query(
+    `
+      DELETE FROM issues
+      WHERE id = $1
+    `,
+    [issueId],
+  );
+
+  return null;
+};
 export const IssueService = {
   createIssueIntoDB,
   getAllIssuesFromDB,
   getSingleIssueFromDB,
   updateIssueIntoDB,
+  deleteIssueFromDB,
 };
