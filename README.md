@@ -70,7 +70,7 @@ The system uses JWT-based authentication and role-based authorization to secure 
 ## Clone Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/tkabir3066/dev-pulse-api.git
 
 cd dev-pulse
 ```
